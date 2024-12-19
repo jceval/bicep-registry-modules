@@ -5,8 +5,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.31.92.45157",
-      "templateHash": "16666145367206540372"
+      "version": "0.32.4.45862",
+      "templateHash": "13956391849983107395"
     },
     "name": "Cognitive Services",
     "description": "This module deploys a Cognitive Service.",
@@ -78,6 +78,35 @@
             "nullable": true,
             "metadata": {
               "description": "Optional. The name of RAI policy."
+            }
+          },
+          "scaleSettings": {
+            "type": "object",
+            "properties": {
+              "capacity": {
+                "type": "int",
+                "metadata": {
+                  "description": "Optional. Deployment capacity."
+                }
+              },
+              "scaleType": {
+                "type": "string",
+                "nullable": true,
+                "metadata": {
+                  "description": "Optional. Deployment scale type. Manual or Standard."
+                }
+              }
+            },
+            "nullable": true,
+            "metadata": {
+              "description": "Optional. Properties of Cognitive Services account deployment model. Deprecated, please use Deployment.sku instead."
+            }
+          },
+          "versionUpgradeOption": {
+            "type": "string",
+            "nullable": true,
+            "metadata": {
+              "description": "Optional. The name of RAI policy. NoAutoUpgrade, OnceCurrentVersionExpired, OnceNewDefaultVersionAvailable."
             }
           }
         }
@@ -1009,10 +1038,7 @@
       "apiVersion": "2023-02-01",
       "subscriptionId": "[split(coalesce(tryGet(parameters('customerManagedKey'), 'keyVaultResourceId'), '//'), '/')[2]]",
       "resourceGroup": "[split(coalesce(tryGet(parameters('customerManagedKey'), 'keyVaultResourceId'), '////'), '/')[4]]",
-      "name": "[format('{0}/{1}', last(split(coalesce(tryGet(parameters('customerManagedKey'), 'keyVaultResourceId'), 'dummyVault'), '/')), coalesce(tryGet(parameters('customerManagedKey'), 'keyName'), 'dummyKey'))]",
-      "dependsOn": [
-        "cMKKeyVault"
-      ]
+      "name": "[format('{0}/{1}', last(split(coalesce(tryGet(parameters('customerManagedKey'), 'keyVaultResourceId'), 'dummyVault'), '/')), coalesce(tryGet(parameters('customerManagedKey'), 'keyName'), 'dummyKey'))]"
     },
     "avmTelemetry": {
       "condition": "[parameters('enableTelemetry')]",
@@ -1078,6 +1104,7 @@
         "dynamicThrottlingEnabled": "[parameters('dynamicThrottlingEnabled')]"
       },
       "dependsOn": [
+        "cMKKeyVault::cMKKey",
         "cMKKeyVault",
         "cMKUserAssignedIdentity"
       ]
@@ -1094,7 +1121,9 @@
       "name": "[format('{0}/{1}', parameters('name'), coalesce(tryGet(coalesce(parameters('deployments'), createArray())[copyIndex()], 'name'), format('{0}-deployments', parameters('name'))))]",
       "properties": {
         "model": "[coalesce(parameters('deployments'), createArray())[copyIndex()].model]",
-        "raiPolicyName": "[tryGet(coalesce(parameters('deployments'), createArray())[copyIndex()], 'raiPolicyName')]"
+        "raiPolicyName": "[tryGet(coalesce(parameters('deployments'), createArray())[copyIndex()], 'raiPolicyName')]",
+        "scaleSettings": "[tryGet(coalesce(parameters('deployments'), createArray())[copyIndex()], 'scaleSettings')]",
+        "versionUpgradeOption": "[tryGet(coalesce(parameters('deployments'), createArray())[copyIndex()], 'versionUpgradeOption')]"
       },
       "sku": "[coalesce(tryGet(coalesce(parameters('deployments'), createArray())[copyIndex()], 'sku'), createObject('name', parameters('sku')))]",
       "dependsOn": [
@@ -1971,12 +2000,12 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.92.45157",
-              "templateHash": "11634725007167901429"
+              "version": "0.32.4.45862",
+              "templateHash": "13365107869204248001"
             }
           },
           "definitions": {
-            "secretSetOutputType": {
+            "secretSetType": {
               "type": "object",
               "properties": {
                 "secretResourceId": {
@@ -1990,19 +2019,10 @@
                   "metadata": {
                     "description": "The secret URI of the exported secret."
                   }
-                },
-                "secretUriWithVersion": {
-                  "type": "string",
-                  "metadata": {
-                    "description": "The secret URI with version of the exported secret."
-                  }
                 }
               },
               "metadata": {
-                "description": "An AVM-aligned type for the output of the secret set via the secrets export feature.",
-                "__bicep_imported_from!": {
-                  "sourceTemplate": "br:mcr.microsoft.com/bicep/avm/utl/types/avm-common-types:0.4.0"
-                }
+                "__bicep_export!": true
               }
             },
             "secretToSetType": {
@@ -2019,12 +2039,6 @@
                   "metadata": {
                     "description": "Required. The value of the secret to set."
                   }
-                }
-              },
-              "metadata": {
-                "description": "An AVM-aligned type for the secret to set via the secrets export feature.",
-                "__bicep_imported_from!": {
-                  "sourceTemplate": "br:mcr.microsoft.com/bicep/avm/utl/types/avm-common-types:0.4.0"
                 }
               }
             }
@@ -2063,17 +2077,14 @@
               "name": "[format('{0}/{1}', parameters('keyVaultName'), parameters('secretsToSet')[copyIndex()].name)]",
               "properties": {
                 "value": "[parameters('secretsToSet')[copyIndex()].value]"
-              },
-              "dependsOn": [
-                "keyVault"
-              ]
+              }
             }
           },
           "outputs": {
             "secretsSet": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/secretSetOutputType"
+                "$ref": "#/definitions/secretSetType"
               },
               "metadata": {
                 "description": "The references to the secrets exported to the provided Key Vault."
@@ -2082,8 +2093,7 @@
                 "count": "[length(range(0, length(coalesce(parameters('secretsToSet'), createArray()))))]",
                 "input": {
                   "secretResourceId": "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), parameters('secretsToSet')[range(0, length(coalesce(parameters('secretsToSet'), createArray())))[copyIndex()]].name)]",
-                  "secretUri": "[reference(format('secrets[{0}]', range(0, length(coalesce(parameters('secretsToSet'), createArray())))[copyIndex()])).secretUri]",
-                  "secretUriWithVersion": "[reference(format('secrets[{0}]', range(0, length(coalesce(parameters('secretsToSet'), createArray())))[copyIndex()])).secretUriWithVersion]"
+                  "secretUri": "[reference(format('secrets[{0}]', range(0, length(coalesce(parameters('secretsToSet'), createArray())))[copyIndex()])).secretUri]"
                 }
               }
             }

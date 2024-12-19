@@ -362,6 +362,11 @@ resource cognitiveService_deployments 'Microsoft.CognitiveServices/accounts/depl
     properties: {
       model: deployment.model
       raiPolicyName: deployment.?raiPolicyName
+      scaleSettings: deployment.?scaleSettings ?? {
+        capacity: deployment.?sku.capacity
+        scaleType: deployment.?scaleType
+      }
+      versionUpgradeOption: deployment.?versionUpgradeOption
     }
     sku: deployment.?sku ?? {
       name: sku
@@ -577,6 +582,18 @@ type deploymentsType = {
 
   @description('Optional. The name of RAI policy.')
   raiPolicyName: string?
+
+  @description('Optional. Properties of Cognitive Services account deployment model. Deprecated, please use Deployment.sku instead.')
+  scaleSettings: {
+    @description('Optional. Deployment capacity.')
+    capacity: int
+
+    @description('Optional. Deployment scale type. Manual or Standard.')
+    scaleType: string?
+  }?
+
+  @description('Optional. The name of RAI policy. NoAutoUpgrade, OnceCurrentVersionExpired, OnceNewDefaultVersionAvailable.')
+  versionUpgradeOption: string?
 }[]?
 
 @export()

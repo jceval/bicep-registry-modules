@@ -57,6 +57,7 @@ module testDeployment '../../../main.bicep' = [
             name: 'Standard'
             capacity: 10
           }
+          versionUpgradeOption: 'Automatic'
         }
       ]
     }
